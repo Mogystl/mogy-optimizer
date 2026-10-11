@@ -1,0 +1,61 @@
+plugins {
+    // Fabric 26.x runs on unobfuscated Minecraft, so this is the non-remapping Loom plugin.
+    id 'net.fabricmc.fabric-loom' version '1.18.3'
+}
+
+version = "${mod_version}+${minecraft_version}"
+group = maven_group
+
+base {
+    archivesName = archives_base_name
+}
+
+dependencies {
+    minecraft("com.mojang:minecraft:${minecraft_version}")
+    implementation("net.fabricmc:fabric-loader:${fabric_loader_version}")
+    implementation("net.fabricmc.fabric-api:fabric-api:${fabric_version}")
+}
+
+// Client game tests in src/gametest (run with ./gradlew runClientGameTest); not part of the mod jar.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "${archives_base_name}-gametest"
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+    }
+}
+
+loom {
+    runs {
+        client {
+            client()
+            setConfigName('Fabric Client')
+            ideConfigGenerated(true)
+            runDir('run')
+        }
+    }
+}
+
+processResources {
+    def props = [
+            version              : version,
+            minecraft_version    : minecraft_version,
+            fabric_loader_version: fabric_loader_version
+    ]
+    inputs.properties(props)
+    filesMatching('fabric.mod.json') {
+        expand(props)
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version as int)
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = java_version as int
+}

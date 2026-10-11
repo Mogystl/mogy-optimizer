@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.mogy.optimizer.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "FileResourcesSupplierAccessor",
+    "FolderRepositorySourceMixin",
+    "LunarFolderSearchMixin",
+    "PackEntryMixin",
+    "PackMetadataCacheMixin",
+    "PackRepositoryAccessor",
+    "PackSelectionEntryGuardMixin",
+    "PackSelectionModelAccessor",
+    "PackSelectionScreenMixin",
+    "PathResourcesSupplierAccessor",
+    "WindowMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

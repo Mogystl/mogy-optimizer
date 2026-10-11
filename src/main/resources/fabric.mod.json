@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "mogy-optimizer",
+  "version": "${version}",
+  "name": "Mogy Optimizer",
+  "description": "Client-side fixes for fullscreen/screenshare stutter and a lag-free, crash-proof resource pack menu.",
+  "authors": ["Mogystl"],
+  "contact": {
+    "homepage": "https://github.com/Mogystl/mogy-optimizer",
+    "sources": "https://github.com/Mogystl/mogy-optimizer",
+    "issues": "https://github.com/Mogystl/mogy-optimizer/issues"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.mogy.optimizer.MogyOptimizerClient"]
+  },
+  "mixins": ["mogy-optimizer.mixins.json"],
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
