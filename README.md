@@ -14,6 +14,8 @@ Mogy Optimizer fixes both without changing how the game looks or plays.
 
 Client-side only. Works on any server.
 
+**Download:** [Modrinth](https://modrinth.com/mod/mogy-optimizer) · [GitHub Releases](https://github.com/Mogystl/mogy-optimizer/releases)
+
 ---
 
 ## Features
@@ -84,7 +86,7 @@ A small watchdog thread checks whether the game is still ticking. If the main th
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for your Minecraft version.
 2. **26.1.2 only:** also install [Fabric API](https://modrinth.com/mod/fabric-api).
-3. Download the jar for your version from [Releases](../../releases) and drop it into your `mods` folder.
+3. Download the jar for your version from [Modrinth](https://modrinth.com/mod/mogy-optimizer) or [Releases](../../releases) and drop it into your `mods` folder.
 
 For Lunar Client, put the jar in `.lunarclient/profiles/<profile>/mods/fabric-<version>/` and launch that version with Fabric enabled.
 
