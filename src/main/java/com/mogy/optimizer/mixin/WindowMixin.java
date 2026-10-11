@@ -38,7 +38,6 @@ public abstract class WindowMixin {
     @Shadow private int y;
     @Shadow private int width;
     @Shadow private int height;
-    @Shadow private boolean isResized;
 
     /**
      * Whether the window is currently in borderless fullscreen. GLFW cannot tell us:
@@ -47,11 +46,6 @@ public abstract class WindowMixin {
      */
     @Unique
     private boolean mogy$borderless;
-
-    @Shadow
-    private static int allowedWindowMinSize(int size) {
-        throw new AssertionError();
-    }
 
     @Shadow
     private void setMode() {
@@ -90,8 +84,8 @@ public abstract class WindowMixin {
             // Same as vanilla: remember the windowed rectangle so leaving fullscreen restores it.
             this.windowedX = this.x;
             this.windowedY = this.y;
-            this.windowedWidth = allowedWindowMinSize(this.width);
-            this.windowedHeight = allowedWindowMinSize(this.height);
+            this.windowedWidth = this.width;
+            this.windowedHeight = this.height;
         }
 
         // Borderless uses the monitor's current desktop mode; changing resolution would need exclusive mode.
@@ -107,7 +101,6 @@ public abstract class WindowMixin {
         this.y = monitor.getY();
         this.width = mode.getWidth();
         this.height = mode.getHeight();
-        this.isResized = true;
         this.mogy$borderless = true;
         ci.cancel();
     }

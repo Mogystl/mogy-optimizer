@@ -273,7 +273,6 @@ public class MogyClientGameTest implements FabricClientGameTest {
                 throw new AssertionError("Auto-iconify should be disabled");
             }
             client.getWindow().toggleFullScreen();
-            client.getWindow().updateFullscreenIfChanged();
         });
         context.waitTicks(20);
         context.runOnClient(client -> {
@@ -293,7 +292,6 @@ public class MogyClientGameTest implements FabricClientGameTest {
 
         context.runOnClient(client -> {
             client.getWindow().toggleFullScreen();
-            client.getWindow().updateFullscreenIfChanged();
         });
         context.waitTicks(20);
         context.runOnClient(client -> {

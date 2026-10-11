@@ -2,11 +2,12 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.mogy.optimizer.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_21",
   "client": [
     "FileResourcesSupplierAccessor",
     "FolderRepositorySourceMixin",
     "LunarFolderSearchMixin",
+    "MinecraftLifecycleMixin",
     "PackEntryMixin",
     "PackMetadataCacheMixin",
     "PackRepositoryAccessor",

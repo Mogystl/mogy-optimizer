@@ -17,9 +17,8 @@
   },
   "mixins": ["mogy-optimizer.mixins.json"],
   "depends": {
-    "fabricloader": ">=${fabric_loader_version}",
+    "fabricloader": ">=0.16.10",
     "minecraft": "~${minecraft_version}",
-    "java": ">=25",
-    "fabric-api": "*"
+    "java": ">=21"
   }
 }
