@@ -2,16 +2,19 @@ package com.mogy.optimizer.packs;
 
 import com.mogy.optimizer.MogyOptimizerClient;
 import com.mogy.optimizer.config.MogyConfig;
+import com.mogy.optimizer.mixin.TextureManagerAccessor;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.repository.Pack;
-import net.minecraft.server.packs.resources.IoSupplier;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,19 +30,23 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Asynchronous, cached replacement for {@code PackSelectionScreen.getPackIcon()}.
+ * Asynchronous, cached replacement for {@code ResourcePack.bindIcon()}.
  *
  * <h2>Root cause</h2>
- * Vanilla loads a pack's icon the first time its list entry is drawn, on the render
- * thread. It reopens the pack archive, decodes the <em>full-resolution</em>
- * {@code pack.png} (often 512 to 4096 px, even though it is drawn at 32 px), and uploads
- * it as a GPU texture. Scrolling a long list stalls on every new row. The cache lives on
- * the screen and is cleared by every folder change, so the work repeats each time. The
- * decode is guarded by {@code catch (Exception)}, so a huge or malicious PNG that throws
- * {@link OutOfMemoryError} crashes the game.
+ * In 1.16.1 every folder scan (game start, pressing Done, drag-and-drop) builds a new
+ * {@code ResourcePack} for every pack, and its constructor decodes the
+ * <em>full-resolution</em> {@code pack.png} (often 512 to 4096 px, even though it is drawn
+ * at 32 px). All of those images stay in memory. The first time a row is drawn, the full
+ * image is uploaded as a GPU texture on the render thread, so scrolling a long list stalls
+ * on every new row. Each scan creates new pack objects, so the uploads repeat, and the old
+ * textures are never released. The decode only catches {@code IOException} and
+ * {@code IllegalArgumentException}, so a huge or malicious PNG that throws
+ * {@link OutOfMemoryError} crashes the game during the scan.
  *
  * <h2>Fix</h2>
  * <ul>
+ *   <li>Scans no longer decode icons at all (see
+ *       {@link com.mogy.optimizer.mixin.ResourcePackIconMixin}).</li>
  *   <li>The render thread only does a map lookup. A missing icon returns vanilla's default
  *       icon and queues a decode on {@link PackWorker}.</li>
  *   <li>The worker reads at most {@code maxIconBytes}, checks the PNG header dimensions
@@ -50,8 +57,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  *   <li>The cache is static and keyed by pack id, so it survives reopening the menu and
  *       folder rescans. After each scan, entries whose file changed (size or modified
  *       time) are dropped ({@link #revalidate}), so edited packs still refresh.</li>
- *   <li>Least recently used textures beyond {@code iconCacheSize} are released through
- *       {@link TextureManager#release}, so memory stays bounded.</li>
+ *   <li>Least recently used textures beyond {@code iconCacheSize} are closed and
+ *       unregistered, so memory stays bounded.</li>
  *   <li>Every failure, including {@link Throwable}, is caught per icon and shows the
  *       default icon.</li>
  * </ul>
@@ -74,22 +81,43 @@ public final class PackIconCache {
     private static int textureCounter;
 
     /** {@code texture == null} means "this pack has no usable icon": draw the default and don't retry. */
-    private record CachedIcon(String fileKey, Identifier texture) {
+    private static final class CachedIcon {
+        final String fileKey;
+        final ResourceLocation texture;
+
+        CachedIcon(String fileKey, ResourceLocation texture) {
+            this.fileKey = fileKey;
+            this.texture = texture;
+        }
     }
 
     /** {@code image == null} means decoding failed or the pack has no icon. */
-    private record DecodedIcon(String packId, String fileKey, NativeImage image) {
+    private static final class DecodedIcon {
+        final String packId;
+        final String fileKey;
+        final NativeImage image;
+
+        DecodedIcon(String packId, String fileKey, NativeImage image) {
+            this.packId = packId;
+            this.fileKey = fileKey;
+            this.image = image;
+        }
     }
 
     private PackIconCache() {
     }
 
+    /** Packs from the resource pack folder; only their icons go through this cache. */
+    public static boolean isFolderPack(String packId) {
+        return packId.startsWith("file/");
+    }
+
     /** Render thread. Returns the cached icon, or {@code fallback} while it loads. Never blocks. */
-    public static Identifier get(Pack pack, Path packDir, Identifier fallback) {
+    public static ResourceLocation get(Pack pack, Path packDir, ResourceLocation fallback) {
         String id = pack.getId();
         CachedIcon cached = CACHE.get(id);
         if (cached != null) {
-            return cached.texture() != null ? cached.texture() : fallback;
+            return cached.texture != null ? cached.texture : fallback;
         }
         if (PENDING.add(id) && !PackWorker.submit(() -> READY.add(decode(pack, packDir)))) {
             PENDING.remove(id); // worker is gone (game shutting down)
@@ -101,7 +129,7 @@ public final class PackIconCache {
     public static int loadedIconCount() {
         int count = 0;
         for (CachedIcon icon : CACHE.values()) {
-            if (icon.texture() != null) {
+            if (icon.texture != null) {
                 count++;
             }
         }
@@ -117,20 +145,19 @@ public final class PackIconCache {
         int budget = MogyConfig.get().iconUploadsPerTick;
         DecodedIcon decoded;
         while (budget-- > 0 && (decoded = READY.poll()) != null) {
-            PENDING.remove(decoded.packId());
-            Identifier texture = null;
-            if (decoded.image() != null) {
-                texture = Identifier.fromNamespaceAndPath(MogyOptimizerClient.MOD_ID, "pack_icon/" + textureCounter++);
+            PENDING.remove(decoded.packId);
+            ResourceLocation texture = null;
+            if (decoded.image != null) {
+                texture = new ResourceLocation(MogyOptimizerClient.MOD_ID, "pack_icon/" + textureCounter++);
                 try {
-                    Identifier name = texture;
-                    textures.register(texture, new DynamicTexture(name::toString, decoded.image()));
+                    textures.register(texture, new DynamicTexture(decoded.image));
                 } catch (Throwable t) {
-                    decoded.image().close();
-                    warnOnce(decoded.packId(), "upload", t);
+                    decoded.image.close();
+                    warnOnce(decoded.packId, "upload", t);
                     texture = null;
                 }
             }
-            CachedIcon previous = CACHE.put(decoded.packId(), new CachedIcon(decoded.fileKey(), texture));
+            CachedIcon previous = CACHE.put(decoded.packId, new CachedIcon(decoded.fileKey, texture));
             if (previous != null) {
                 release(textures, previous);
             }
@@ -149,7 +176,7 @@ public final class PackIconCache {
             Map.Entry<String, CachedIcon> entry = it.next();
             String current = currentFileKeys.get(entry.getKey());
             boolean removedFilePack = current == null && entry.getKey().startsWith("file/");
-            if (removedFilePack || (current != null && !current.equals(entry.getValue().fileKey()))) {
+            if (removedFilePack || (current != null && !current.equals(entry.getValue().fileKey))) {
                 release(textures, entry.getValue());
                 it.remove();
             }
@@ -187,13 +214,11 @@ public final class PackIconCache {
         String id = pack.getId();
         String key = fileKey(id, packDir);
         try (PackResources resources = pack.open()) {
-            IoSupplier<InputStream> supplier = resources.getRootResource("pack.png");
-            if (supplier == null) {
-                return new DecodedIcon(id, key, null);
-            }
             byte[] bytes;
-            try (InputStream in = supplier.get()) {
+            try (InputStream in = resources.getRootResource("pack.png")) {
                 bytes = readCapped(in, MogyConfig.get().maxIconBytes);
+            } catch (FileNotFoundException e) {
+                return new DecodedIcon(id, key, null); // the pack has no icon
             }
             if (bytes == null) {
                 warnOnce(id, "icon larger than maxIconBytes", null);
@@ -203,7 +228,7 @@ public final class PackIconCache {
                 warnOnce(id, "icon is not a PNG or its dimensions are too large", null);
                 return new DecodedIcon(id, key, null);
             }
-            return new DecodedIcon(id, key, downscale(NativeImage.read(bytes)));
+            return new DecodedIcon(id, key, downscale(NativeImage.read(new ByteArrayInputStream(bytes))));
         } catch (Throwable t) {
             // Includes OutOfMemoryError from a decompression bomb, which vanilla would crash on.
             warnOnce(id, "decode", t);
@@ -269,9 +294,15 @@ public final class PackIconCache {
         }
     }
 
+    /** Closes the texture (GL id and image) and unregisters it; 1.16.1's {@code release()} only frees the GL id. */
     private static void release(TextureManager textures, CachedIcon icon) {
-        if (icon.texture() != null) {
-            textures.release(icon.texture());
+        if (icon.texture != null) {
+            AbstractTexture texture = ((TextureManagerAccessor) textures).mogy$getByPath().remove(icon.texture);
+            if (texture instanceof DynamicTexture) {
+                ((DynamicTexture) texture).close();
+            } else if (texture != null) {
+                texture.releaseId();
+            }
         }
     }
 

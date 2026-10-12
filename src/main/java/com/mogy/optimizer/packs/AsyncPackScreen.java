@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * the screen's private fields directly.
  */
 public interface AsyncPackScreen {
-    PackRepository mogy$repository();
+    PackRepository<?> mogy$repository();
 
     Path mogy$packDir();
 

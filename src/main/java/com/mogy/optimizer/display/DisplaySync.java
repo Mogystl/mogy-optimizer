@@ -10,9 +10,8 @@ import org.lwjgl.glfw.GLFW;
  * <h2>Auto-iconify</h2>
  * Vanilla never sets {@code GLFW_AUTO_ICONIFY}, so it stays at GLFW's default of
  * {@code true}. A fullscreen window then minimizes itself the moment it loses focus,
- * for example when you click Discord or OBS on a second monitor. Vanilla's
- * {@code FramerateLimitTracker} sees {@code Window.isIconified()} and caps the game at
- * 10 FPS ({@code ICONIFIED_WINDOW_LIMIT}), and the stream shows a frozen, minimized game.
+ * for example when you click Discord or OBS on a second monitor. The game then stops
+ * presenting frames while minimized, and the stream shows a frozen, minimized game.
  * Turning auto-iconify off keeps the window on screen and running at full speed. A real
  * minimize (Win+D, the taskbar) still iconifies and throttles as before.
  *

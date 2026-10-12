@@ -17,8 +17,8 @@ import java.util.List;
  * {@code PackSelectionModel.EntryBase.toggleSelection()} removes the pack from its own
  * list and then inserts it into the other list <em>unconditionally</em>. {@code move()}
  * uses {@code indexOf()} on its own list. A row whose pack was dropped by a rescan can
- * still be acted on, for example by confirming the "incompatible pack" dialog after the
- * folder changed underneath it. The toggle then duplicates the pack, and the move calls
+ * still be acted on, for example by confirming the "incompatible pack" dialog after a
+ * drag-and-drop or background rescan changed the folder underneath it. The toggle then duplicates the pack, and the move calls
  * {@code remove(-1)}, which throws {@link IndexOutOfBoundsException} and crashes the
  * client.
  *

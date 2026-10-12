@@ -7,11 +7,11 @@ import com.mogy.optimizer.packs.PackScanService;
 import com.mogy.optimizer.packs.PackWorker;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
- * Entry point for Mogy Optimizer (Minecraft 1.21.11 build).
+ * Entry point for Mogy Optimizer (Minecraft 1.16.1 build).
  *
  * <p>The mod has two independent modules:
  * <ul>
@@ -25,7 +25,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class MogyOptimizerClient implements ClientModInitializer {
     public static final String MOD_ID = "mogy-optimizer";
-    public static final Logger LOGGER = LoggerFactory.getLogger("Mogy Optimizer");
+    public static final Logger LOGGER = LogManager.getLogger("Mogy Optimizer");
+
+    private static boolean started;
 
     @Override
     public void onInitializeClient() {
@@ -36,6 +38,11 @@ public final class MogyOptimizerClient implements ClientModInitializer {
 
     /** Render thread, end of every client tick. */
     public static void onEndTick(Minecraft client) {
+        // 1.16.1 has no "game load finished" hook; startup is done once the loading overlay is gone.
+        if (!started && client.getOverlay() == null) {
+            started = true;
+            onClientStarted(client);
+        }
         StallWatchdog.heartbeat();
         // Finished icons are uploaded to the GPU in small batches, so even a menu with
         // hundreds of packs never causes a frame spike.
@@ -43,7 +50,7 @@ public final class MogyOptimizerClient implements ClientModInitializer {
     }
 
     /** Render thread, once startup loading has finished: preload pack icons, start the freeze recorder. */
-    public static void onClientStarted(Minecraft client) {
+    private static void onClientStarted(Minecraft client) {
         PackScanService.onClientStarted(client);
         if (MogyConfig.get().freezeReports) {
             StallWatchdog.start();

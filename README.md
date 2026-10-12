@@ -1,4 +1,4 @@
-﻿# Mogy Optimizer
+# Mogy Optimizer
 
 A client-side Fabric mod that fixes two things that have bothered me in Minecraft for a long time:
 
@@ -11,6 +11,7 @@ Mogy Optimizer fixes both without changing how the game looks or plays.
 |-----------|--------|--------|----------|
 | 26.1.2 | Fabric | [`main`](../../tree/main) | Fabric API |
 | 1.21.11 | Fabric | [`1.21.11`](../../tree/1.21.11) | Fabric Loader only |
+| 1.16.1 | Fabric | [`1.16.1`](../../tree/1.16.1) | Fabric Loader only |
 
 Client-side only. Works on any server.
 
@@ -27,7 +28,7 @@ Client-side only. Works on any server.
 - **Pack scans run in the background** and reuse cached pack info, so they're around 10× faster.
 - **Pack icons load in the background**, downscaled and cached, so scrolling stays smooth.
 - **Crash protection** for broken packs, oversized icons and clicks during a rescan.
-- **Lunar Client fix** for its folder view, which could freeze the game for close to a minute on large pack folders.
+- **Lunar Client fix** *(1.21.11 and 26.1.2)* for its folder view, which could freeze the game for close to a minute on large pack folders.
 - **FPS booster** *(26.1.2)*: skips drawing far-away holograms, armor stands, item frames, chests, signs and banners, and caps particle spam from totem pops and explosions.
 - **Freeze and low-FPS reports**: if the game hangs for 3+ seconds or drops below 20 FPS, a short report shows what it was doing.
 
@@ -63,6 +64,17 @@ The mod reworks this:
 - **Icon cache:** icons are decoded and shrunk to 64 px in the background, uploaded to the GPU a few per tick, and kept between menu opens. Oversized or broken images fall back to the default icon instead of using huge amounts of memory.
 - **Quieter scans:** vanilla logs a line for every loose file in the pack folder. On folders with an unzipped pack that's thousands of log lines per scan, which also slows the game. The mod drops that message.
 
+### Resource pack menu on 1.16.1
+
+The 1.16.1 menu is built differently, so the 1.16.1 build fixes it differently:
+
+- **Icons are no longer decoded during scans.** In 1.16.1 every scan of the pack folder (game start, pressing Done, drag-and-drop) decodes every pack's `pack.png` at full size and keeps all of them in memory. Pressing Done in the menu runs such a scan on the main thread before the resource reload even starts. With the mod, icons are only loaded for the menu, in the background, shrunk to 64 px and cached.
+- **No more icon texture leak.** Vanilla 1.16.1 uploads a new full-size texture for every pack after every scan and never frees the old ones. Cached icons are reused, and evicted ones are actually freed.
+- **New packs show up without pressing Done.** Vanilla 1.16.1 never rescans when the menu opens. The mod rescans in the background each time, so packs you add to the folder appear right away. Drag-and-drop no longer freezes the game while it rescans.
+- **Pack info cache** works the same as on newer versions: unchanged packs are answered from memory without opening the zip.
+- The Lunar Client fix and the "non-pack entry" log fix don't apply to 1.16.1 (Lunar doesn't run Fabric on 1.16.1, and 1.16.1 doesn't write that log line).
+- Fullscreen, vsync and freeze reports work the same as on newer versions. The FPS booster and low-FPS reports are 26.1.2 only.
+
 ### FPS booster (26.1.2)
 
 Sodium already makes terrain cheap to draw. On servers, the frame time that's left mostly goes to things drawn one by one: lobby holograms (armor stands and text displays), item frames, paintings, chests, signs, banners, heads, and particles. Vanilla draws decorations and block entities up to about 64 blocks away and keeps up to 16,384 particles of each type.
@@ -85,7 +97,7 @@ In a test world built like a crowded lobby (about 1,500 chests and signs, 1,600 
 - Vanilla's select/move code assumes the pack is still in its list. If a rescan removed it, moving it calls `remove(-1)` and the game crashes. The mod skips actions on these outdated rows.
 - Errors from a single click in the menu are logged instead of closing the game.
 
-### Lunar Client
+### Lunar Client (1.21.11 and 26.1.2)
 
 Lunar Client shows packs in folders. Every time the pack list is rebuilt (opening the menu, and every select or remove), it looks up each pack's file with a separate recursive search of the whole pack folder. Built-in and mod packs aren't files, so each of those searches walks every folder. With a few hundred packs and some loose files, that adds up to millions of file checks. I measured a **53-second freeze** per click, which is long enough for servers to time you out.
 
@@ -121,8 +133,8 @@ Settings are in `config/mogy-optimizer.json`, created on first launch. Every fix
 | `adaptiveVsync` | `true` | Use adaptive vsync when the driver supports it. |
 | `asyncPackScan` | `true` | Rescan the pack folder in the background. |
 | `cachePackMetadata` | `true` | Remember pack info between scans. |
-| `quietPackScanLog` | `true` | Drop the per-file "non-pack entry" log line. |
-| `cacheLauncherFolderSearch` | `true` | Lunar Client folder-view fix. |
+| `quietPackScanLog` | `true` | Drop the per-file "non-pack entry" log line (not in 1.16.1). |
+| `cacheLauncherFolderSearch` | `true` | Lunar Client folder-view fix (not in 1.16.1). |
 | `asyncPackIcons` | `true` | Load pack icons in the background. |
 | `preloadPackIcons` | `true` | Load all pack icons at startup so the menu has them ready. |
 | `maxIconBytes` | `4194304` | Largest `pack.png` that will be decoded (bytes). |
@@ -158,6 +170,7 @@ cd mogy-optimizer
 
 - `main` (26.1.2) needs **JDK 25**.
 - `1.21.11` needs **JDK 25** to run Gradle and builds with Java 21.
+- `1.16.1` needs **JDK 25** to run Gradle and builds for Java 8 (the jar runs on Java 8 or newer). It has no automated game tests.
 
 The client game tests start a real Minecraft client and check the pack menu (with 300+ generated packs, including broken ones), the Lunar search cache, borderless fullscreen and the freeze reports.
 

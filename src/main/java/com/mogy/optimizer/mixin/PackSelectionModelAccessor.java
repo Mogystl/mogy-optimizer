@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import java.util.List;
 
 /** Access to the menu's working lists, so a finished scan can be merged exactly as {@code findNewPacks()} does. */
+@SuppressWarnings("rawtypes")
 @Mixin(PackSelectionModel.class)
 public interface PackSelectionModelAccessor {
     @Accessor("repository")

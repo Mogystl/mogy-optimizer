@@ -1,5 +1,5 @@
 plugins {
-    // 1.21.11 ships obfuscated, so this uses the remapping Loom plugin with Mojang's official names.
+    // 1.16.1 ships obfuscated, so this uses the remapping Loom plugin with Mojang's official names.
     id 'net.fabricmc.fabric-loom-remap' version '1.18.3'
 }
 
@@ -10,24 +10,10 @@ base {
     archivesName = archives_base_name
 }
 
-// Client game tests in src/gametest (run with ./gradlew runClientGameTest); not part of the mod jar.
-fabricApi {
-    configureTests {
-        createSourceSet = true
-        modId = "${archives_base_name}-gametest"
-        enableGameTests = false
-        enableClientGameTests = true
-        eula = true
-    }
-}
-
 dependencies {
     minecraft("com.mojang:minecraft:${minecraft_version}")
     mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:${fabric_loader_version}")
-    // Dev/test runtime only: the mod does not depend on Fabric API.
-    modLocalRuntime("net.fabricmc.fabric-api:fabric-api:${fabric_version}")
-    modGametestImplementation("net.fabricmc.fabric-api:fabric-api:${fabric_version}")
 }
 
 loom {
@@ -54,7 +40,8 @@ processResources {
 }
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(java_version as int)
+    // Compiled with JDK 21 targeting Java 8; the game itself runs on Java 8 or newer.
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
 }
 

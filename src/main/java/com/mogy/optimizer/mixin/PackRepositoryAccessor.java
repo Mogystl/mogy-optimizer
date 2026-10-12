@@ -15,12 +15,20 @@ import java.util.Set;
 /**
  * Lets the async pack scan split {@code PackRepository.reload()} in two: discovery
  * ({@code sources}) runs on the worker, and the field swap ({@code available},
- * {@code selected}, {@code rebuildSelected}) runs on the render thread.
+ * {@code selected}, {@code rebuildSelected}) runs on the render thread. In 1.16.1 the
+ * repository is generic over its pack type, so the raw {@link Pack} type is used here.
  */
+@SuppressWarnings("rawtypes")
 @Mixin(PackRepository.class)
 public interface PackRepositoryAccessor {
     @Accessor("sources")
     Set<RepositorySource> mogy$getSources();
+
+    @Accessor("constructor")
+    Pack.PackConstructor mogy$getConstructor();
+
+    @Accessor("available")
+    Map<String, Pack> mogy$getAvailable();
 
     @Accessor("available")
     void mogy$setAvailable(Map<String, Pack> available);

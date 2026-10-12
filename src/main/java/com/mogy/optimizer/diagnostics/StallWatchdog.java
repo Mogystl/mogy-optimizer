@@ -1,7 +1,6 @@
 package com.mogy.optimizer.diagnostics;
 
 import com.mogy.optimizer.MogyOptimizerClient;
-import com.mogy.optimizer.packs.DirectoryListingCache;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
@@ -119,8 +118,7 @@ public final class StallWatchdog {
         StringBuilder out = new StringBuilder();
         out.append("=== Freeze of ").append(durationMs).append(" ms at ")
                 .append(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-                .append(" (").append(samples.size()).append(" samples) ===\n")
-                .append(DirectoryListingCache.stats()).append('\n');
+                .append(" (").append(samples.size()).append(" samples) ===\n");
         out.append("Methods on the render thread's stack (% of samples):\n");
         for (int i = 0; i < Math.min(TOP_FRAMES, top.size()); i++) {
             Map.Entry<String, Integer> entry = top.get(i);

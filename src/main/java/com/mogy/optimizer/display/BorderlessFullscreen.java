@@ -2,7 +2,7 @@ package com.mogy.optimizer.display;
 
 import com.mogy.optimizer.MogyOptimizerClient;
 import com.mogy.optimizer.config.MogyConfig;
-import com.mojang.blaze3d.platform.Window;
+import net.minecraft.Util;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -43,14 +43,14 @@ public final class BorderlessFullscreen {
     }
 
     /**
-     * Windows and X11 support positioning an undecorated window over a monitor. macOS uses
-     * its own native fullscreen path, and Wayland does not allow clients to position
-     * windows, so both keep vanilla behaviour.
+     * Windows and Linux (1.16.1's GLFW always uses X11 there) support positioning an
+     * undecorated window over a monitor. macOS uses its own native fullscreen path, so it
+     * keeps vanilla behaviour.
      */
     private static boolean isPlatformSupported() {
         if (platformSupported == null) {
-            String platform = Window.getPlatform();
-            platformSupported = "win32".equals(platform) || "x11".equals(platform);
+            Util.OS platform = Util.getPlatform();
+            platformSupported = platform == Util.OS.WINDOWS || platform == Util.OS.LINUX;
             if (!platformSupported) {
                 MogyOptimizerClient.LOGGER.info("Borderless fullscreen is not supported on platform '{}'; using vanilla fullscreen", platform);
             }

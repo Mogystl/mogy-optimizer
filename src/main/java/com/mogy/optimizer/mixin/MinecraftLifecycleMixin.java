@@ -8,20 +8,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * The three client lifecycle points the mod needs (per tick, startup finished, shutdown).
- * They are hooked directly instead of through Fabric API, so this build needs only Fabric
- * Loader and works in launcher profiles that do not ship Fabric API.
+ * The client lifecycle points the mod needs (per tick and shutdown; "startup finished" is
+ * detected from the tick hook). They are hooked directly instead of through Fabric API, so
+ * this build needs only Fabric Loader.
  */
 @Mixin(Minecraft.class)
 public abstract class MinecraftLifecycleMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void mogy$endOfTick(CallbackInfo ci) {
         MogyOptimizerClient.onEndTick((Minecraft) (Object) this);
-    }
-
-    @Inject(method = "onGameLoadFinished", at = @At("TAIL"))
-    private void mogy$started(CallbackInfo ci) {
-        MogyOptimizerClient.onClientStarted((Minecraft) (Object) this);
     }
 
     @Inject(method = "destroy", at = @At("HEAD"))

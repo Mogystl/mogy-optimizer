@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(Window.class)
 public abstract class WindowMixin {
-    @Shadow @Final private long handle;
+    @Shadow @Final private long window;
     @Shadow @Final private ScreenManager screenManager;
     @Shadow private int windowedX;
     @Shadow private int windowedY;
@@ -54,10 +54,10 @@ public abstract class WindowMixin {
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void mogy$afterCreate(CallbackInfo ci) {
-        DisplaySync.configureWindow(this.handle);
+        DisplaySync.configureWindow(this.window);
         // When the game starts in fullscreen, vanilla creates the window already attached
         // to the monitor (exclusive). Re-run setMode so it switches to borderless right away.
-        if (this.fullscreen && BorderlessFullscreen.isEnabled() && GLFW.glfwGetWindowMonitor(this.handle) != 0L) {
+        if (this.fullscreen && BorderlessFullscreen.isEnabled() && GLFW.glfwGetWindowMonitor(this.window) != 0L) {
             this.setMode();
         }
     }
@@ -68,7 +68,7 @@ public abstract class WindowMixin {
             // Going windowed (or borderless is off): put the title bar back, then let
             // vanilla restore the saved windowed rectangle.
             if (this.mogy$borderless) {
-                BorderlessFullscreen.restoreDecorations(this.handle);
+                BorderlessFullscreen.restoreDecorations(this.window);
                 this.mogy$borderless = false;
             }
             return;
@@ -79,7 +79,7 @@ public abstract class WindowMixin {
             return; // vanilla logs a warning and falls back to windowed
         }
 
-        boolean wasExclusive = GLFW.glfwGetWindowMonitor(this.handle) != 0L;
+        boolean wasExclusive = GLFW.glfwGetWindowMonitor(this.window) != 0L;
         if (!wasExclusive && !this.mogy$borderless) {
             // Same as vanilla: remember the windowed rectangle so leaving fullscreen restores it.
             this.windowedX = this.x;
@@ -91,10 +91,10 @@ public abstract class WindowMixin {
         // Borderless uses the monitor's current desktop mode; changing resolution would need exclusive mode.
         VideoMode mode = monitor.getCurrentMode();
         try {
-            BorderlessFullscreen.enter(this.handle, monitor.getX(), monitor.getY(), mode.getWidth(), mode.getHeight());
+            BorderlessFullscreen.enter(this.window, monitor.getX(), monitor.getY(), mode.getWidth(), mode.getHeight());
         } catch (Throwable t) {
             MogyOptimizerClient.LOGGER.warn("Borderless fullscreen failed, falling back to vanilla fullscreen", t);
-            BorderlessFullscreen.restoreDecorations(this.handle);
+            BorderlessFullscreen.restoreDecorations(this.window);
             return; // vanilla's exclusive path runs instead
         }
         this.x = monitor.getX();

@@ -61,16 +61,10 @@ public final class MogyConfig {
      */
     public boolean cachePackMetadata = true;
 
-    /** Drop the "Found non-pack entry" log line that is written for every loose file during a scan. */
-    public boolean quietPackScanLog = true;
-
     /**
-     * Lunar Client: reuse folder listings while its pack menu looks up each pack's file, instead
-     * of walking the whole resource pack folder once per pack (a ~50 s freeze on big folders).
+     * Decode and downscale pack icons on a background thread, with a persistent cache. Without
+     * this, 1.16.1 decodes every pack's full-size icon during every folder scan and keeps them all in memory.
      */
-    public boolean cacheLauncherFolderSearch = true;
-
-    /** Decode and downscale pack icons on a background thread, with a persistent cache. */
     public boolean asyncPackIcons = true;
 
     /** Decode every pack's icon in the background at game start, so the menu shows them immediately. */

@@ -2,11 +2,9 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.mogy.optimizer.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_8",
   "client": [
-    "FileResourcesSupplierAccessor",
-    "FolderRepositorySourceMixin",
-    "LunarFolderSearchMixin",
+    "AbstractPackResourcesAccessor",
     "MinecraftLifecycleMixin",
     "PackEntryMixin",
     "PackMetadataCacheMixin",
@@ -14,7 +12,8 @@
     "PackSelectionEntryGuardMixin",
     "PackSelectionModelAccessor",
     "PackSelectionScreenMixin",
-    "PathResourcesSupplierAccessor",
+    "ResourcePackIconMixin",
+    "TextureManagerAccessor",
     "WindowMixin"
   ],
   "injectors": {
