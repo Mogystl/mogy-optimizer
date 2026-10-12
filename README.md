@@ -11,6 +11,7 @@ Mogy Optimizer fixes both without changing how the game looks or plays.
 |-----------|--------|--------|----------|
 | 26.1.2 | Fabric | [`main`](../../tree/main) | Fabric API |
 | 1.21.11 | Fabric | [`1.21.11`](../../tree/1.21.11) | Fabric Loader only |
+| 1.16.1 | Fabric | [`1.16.1`](../../tree/1.16.1) | Fabric Loader only |
 
 Client-side only. Works on any server.
 
