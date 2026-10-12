@@ -3,7 +3,7 @@
   "id": "mogy-optimizer",
   "version": "${version}",
   "name": "Mogy Optimizer",
-  "description": "Client-side fixes for fullscreen/screenshare stutter and a lag-free, crash-proof resource pack menu.",
+  "description": "Client-side fixes for fullscreen/screenshare stutter, a lag-free, crash-proof resource pack menu, and an FPS booster for busy servers.",
   "authors": ["Mogystl"],
   "contact": {
     "homepage": "https://github.com/Mogystl/mogy-optimizer",

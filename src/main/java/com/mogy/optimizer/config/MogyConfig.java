@@ -85,6 +85,23 @@ public final class MogyConfig {
     /** How many finished icons may be uploaded to the GPU per client tick. */
     public int iconUploadsPerTick = 16;
 
+    // --- FPS booster -----------------------------------------------------------------
+
+    /** Master switch for the FPS booster (all options below). */
+    public boolean fpsBooster = true;
+
+    /** Armor stands, item frames, paintings, display/hologram entities: render distance in blocks (0 = vanilla). */
+    public int decorationRenderDistance = 48;
+
+    /** All other entities except players (mobs, projectiles, ...): render distance in blocks (0 = vanilla). */
+    public int otherEntityRenderDistance = 0;
+
+    /** Chests, signs, banners, heads and other block entities: render distance in blocks (0 = vanilla's 64). */
+    public int blockEntityRenderDistance = 48;
+
+    /** Maximum particles per particle type (0 = vanilla's 16,384). */
+    public int maxParticlesPerType = 2500;
+
     // --- Diagnostics -----------------------------------------------------------------
 
     /**
@@ -128,6 +145,10 @@ public final class MogyConfig {
         maxIconBytes = clamp(maxIconBytes, 64 * 1024, 32 * 1024 * 1024);
         iconCacheSize = clamp(iconCacheSize, 32, 4096);
         iconUploadsPerTick = clamp(iconUploadsPerTick, 1, 256);
+        decorationRenderDistance = clamp(decorationRenderDistance, 0, 512);
+        otherEntityRenderDistance = clamp(otherEntityRenderDistance, 0, 512);
+        blockEntityRenderDistance = clamp(blockEntityRenderDistance, 0, 512);
+        maxParticlesPerType = maxParticlesPerType <= 0 ? 0 : clamp(maxParticlesPerType, 256, 16384);
     }
 
     private static int clamp(int value, int min, int max) {

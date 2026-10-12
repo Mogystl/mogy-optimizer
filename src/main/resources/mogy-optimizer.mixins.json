@@ -6,13 +6,17 @@
   "client": [
     "FileResourcesSupplierAccessor",
     "FolderRepositorySourceMixin",
+    "FrameCounterMixin",
     "LunarFolderSearchMixin",
+    "BlockEntityCullingMixin",
+    "EntityCullingMixin",
     "PackEntryMixin",
     "PackMetadataCacheMixin",
     "PackRepositoryAccessor",
     "PackSelectionEntryGuardMixin",
     "PackSelectionModelAccessor",
     "PackSelectionScreenMixin",
+    "ParticleLimitMixin",
     "PathResourcesSupplierAccessor",
     "WindowMixin"
   ],

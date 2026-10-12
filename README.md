@@ -24,11 +24,12 @@ Client-side only. Works on any server.
 - **No more auto-minimize.** Clicking another monitor no longer minimizes the game and drops it to 10 FPS.
 - **Adaptive vsync**, so a late frame doesn't halve your frame rate.
 - **Resource pack menu opens instantly**, with all your packs listed on the first frame.
-- **Pack scans run in the background** and reuse cached pack info, so they're around 10Ã— faster.
+- **Pack scans run in the background** and reuse cached pack info, so they're around 10× faster.
 - **Pack icons load in the background**, downscaled and cached, so scrolling stays smooth.
 - **Crash protection** for broken packs, oversized icons and clicks during a rescan.
 - **Lunar Client fix** for its folder view, which could freeze the game for close to a minute on large pack folders.
-- **Freeze reports**: if the game ever hangs for 3+ seconds, a short report shows what it was doing.
+- **FPS booster** *(26.1.2)*: skips drawing far-away holograms, armor stands, item frames, chests, signs and banners, and caps particle spam from totem pops and explosions.
+- **Freeze and low-FPS reports**: if the game hangs for 3+ seconds or drops below 20 FPS, a short report shows what it was doing.
 
 ---
 
@@ -52,7 +53,7 @@ On macOS and Linux Wayland the game keeps vanilla fullscreen, since those platfo
 Opening the vanilla menu does several slow things on the main thread:
 
 1. It rescans the whole resource pack folder, opening every zip and reading every `pack.mcmeta`, **every time** the menu opens.
-2. It loads each pack icon at full resolution the first time the row is drawn. Many packs ship 1024â€“4096 px icons that are displayed at 32 px.
+2. It loads each pack icon at full resolution the first time the row is drawn. Many packs ship 1024–4096 px icons that are displayed at 32 px.
 3. It throws away its icon cache whenever anything in the folder changes.
 
 The mod reworks this:
@@ -61,6 +62,22 @@ The mod reworks this:
 - **Pack info cache:** each pack's metadata (name, description, compatibility) is remembered, keyed by the file's size and modification date. Unchanged packs are answered from memory instead of reopening the archive. Edited packs have a new size or date, so they're read again. On my own 250-pack folder this cut a scan from about 520 ms to about 50 ms.
 - **Icon cache:** icons are decoded and shrunk to 64 px in the background, uploaded to the GPU a few per tick, and kept between menu opens. Oversized or broken images fall back to the default icon instead of using huge amounts of memory.
 - **Quieter scans:** vanilla logs a line for every loose file in the pack folder. On folders with an unzipped pack that's thousands of log lines per scan, which also slows the game. The mod drops that message.
+
+### FPS booster (26.1.2)
+
+Sodium already makes terrain cheap to draw. On servers, the frame time that's left mostly goes to things drawn one by one: lobby holograms (armor stands and text displays), item frames, paintings, chests, signs, banners, heads, and particles. Vanilla draws decorations and block entities up to about 64 blocks away and keeps up to 16,384 particles of each type.
+
+The booster gives each group its own render distance:
+
+| Group | Vanilla | Mogy Optimizer |
+|-------|---------|----------------|
+| Armor stands, item frames, paintings, hologram/display entities | ~64+ blocks | 48 blocks |
+| Chests, signs, banners, heads and other block entities | 64 blocks | 48 blocks |
+| Particles (totem pops, explosions…) | 16,384 per type | 2,500 per type |
+
+Players are never hidden, and neither is anything glowing, anything you're riding, or anything inside those distances. Beacon beams and other things meant to be seen from far away are left alone. Dropped items keep vanilla's distance, since vanilla already hides them past about 16 blocks. When the particle cap is reached the oldest particle is dropped, exactly like vanilla does at its own limit.
+
+In a test world built like a crowded lobby (about 1,500 chests and signs, 1,600 holograms and armor stands, and a constant totem particle storm, all 44–80 blocks away) the time to prepare a frame went from 16.3 ms to 1.2 ms. Real servers gain less than that extreme scene, and nothing changes in places where there's nothing far away to skip.
 
 ### Crash protection
 
@@ -76,9 +93,9 @@ Within one rebuild nothing in the folder changes, so the mod caches folder listi
 
 This hook targets Lunar's current build. If a Lunar update changes it, the hook simply turns itself off; it never causes a crash.
 
-### Freeze reports
+### Freeze and low-FPS reports
 
-A small watchdog thread checks whether the game is still ticking. If the main thread stops for more than 1.5 seconds, it samples what the thread is doing several times a second. For freezes of 3+ seconds it appends a short report to `config/mogy-optimizer-stalls.txt`: the methods that took the most time, plus two stack traces. When the game runs normally it does nothing. Turn it off with `freezeReports` if you don't want it.
+A small watchdog thread checks whether the game is still ticking. If the main thread stops for more than 1.5 seconds, it samples what the thread is doing several times a second. For freezes of 3+ seconds it appends a short report to `config/mogy-optimizer-stalls.txt`: the methods that took the most time, plus two stack traces. It also watches the frame rate: if it stays below 20 FPS for two seconds while the game isn't being slowed down on purpose (minimized, AFK or a low FPS cap), it records three seconds of what the game is doing and notes which screen was open. When the game runs normally it does nothing. Turn it off with `freezeReports` if you don't want it.
 
 ---
 
@@ -99,7 +116,7 @@ Settings are in `config/mogy-optimizer.json`, created on first launch. Every fix
 | Option | Default | What it does |
 |--------|---------|--------------|
 | `fullscreenMode` | `BORDERLESS` | `BORDERLESS` or `EXCLUSIVE` (vanilla). Use exclusive if you need a different fullscreen resolution than your desktop. |
-| `borderlessOverscanPixels` | `1` | Extra pixels added to the borderless window's height (0â€“2). |
+| `borderlessOverscanPixels` | `1` | Extra pixels added to the borderless window's height (0–2). |
 | `disableAutoIconify` | `true` | Keep fullscreen from minimizing when it loses focus. |
 | `adaptiveVsync` | `true` | Use adaptive vsync when the driver supports it. |
 | `asyncPackScan` | `true` | Rescan the pack folder in the background. |
@@ -111,7 +128,12 @@ Settings are in `config/mogy-optimizer.json`, created on first launch. Every fix
 | `maxIconBytes` | `4194304` | Largest `pack.png` that will be decoded (bytes). |
 | `iconCacheSize` | `512` | Number of icons kept in memory. |
 | `iconUploadsPerTick` | `16` | Icons uploaded to the GPU per tick. |
-| `freezeReports` | `true` | Write freeze reports for hangs of 3+ seconds. |
+| `fpsBooster` | `true` | Master switch for the FPS booster (26.1.2). |
+| `decorationRenderDistance` | `48` | Armor stands, item frames, paintings, display entities (blocks, 0 = vanilla). |
+| `blockEntityRenderDistance` | `48` | Chests, signs, banners, heads and other block entities (blocks, 0 = vanilla). |
+| `otherEntityRenderDistance` | `0` | Mobs and other non-player entities (blocks, 0 = vanilla). |
+| `maxParticlesPerType` | `2500` | Particle cap per type (0 = vanilla's 16,384). |
+| `freezeReports` | `true` | Write reports for hangs of 3+ seconds and sustained FPS below 20. |
 
 ---
 

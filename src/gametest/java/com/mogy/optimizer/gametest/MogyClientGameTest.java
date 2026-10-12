@@ -39,10 +39,103 @@ public class MogyClientGameTest implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext context) {
         benchmarkRealPackFolder(context);
+        testLowFpsRecorder(context);
         testFreezeRecorder(context);
         testLauncherFolderSearchCache(context);
         testResourcePackMenu(context);
         testBorderlessFullscreen(context);
+        testFpsBooster(context);
+    }
+
+    /**
+     * Lobby-style benchmark: 1,500 chests with signs, 800 named armor stands and 800 hologram
+     * text displays placed 44-80 blocks in front of the player (past the booster's distances,
+     * inside vanilla's), plus a continuous totem particle storm. Measures the average time to
+     * draw a frame with the booster off and on, and checks nearby objects are never hidden.
+     */
+    private void testFpsBooster(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            client.options.framerateLimit().set(260);
+            client.options.enableVsync().set(false);
+            client.options.renderDistance().set(8);
+        });
+        try (net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext world = context.worldBuilder().create()) {
+            world.getServer().runCommand("tp @a 0.5 -60 0.5 0 0");
+            context.waitTicks(60);
+            world.getServer().runOnServer(server -> {
+                var source = server.createCommandSourceStack().withSuppressedOutput();
+                var commands = server.getCommands();
+                commands.performPrefixedCommand(source, "fill -24 -60 44 24 -60 74 minecraft:chest");
+                commands.performPrefixedCommand(source, "fill -24 -59 44 24 -59 74 minecraft:oak_sign");
+                for (int x = -20; x < 20; x++) {
+                    for (int z = 52; z < 72; z++) {
+                        commands.performPrefixedCommand(source, "summon minecraft:armor_stand " + x + " -58 " + z
+                                + " {NoGravity:1b,CustomName:\"Hologram\",CustomNameVisible:1b}");
+                        commands.performPrefixedCommand(source, "summon minecraft:text_display " + x + " -55 " + z
+                                + " {text:\"Lobby hologram line\",billboard:\"center\"}");
+                    }
+                }
+                // Near objects that must stay visible.
+                commands.performPrefixedCommand(source, "summon minecraft:armor_stand 0.5 -60 8 {NoGravity:1b,CustomName:\"near\"}");
+            });
+            context.waitTicks(80);
+
+            com.mogy.optimizer.config.MogyConfig config = com.mogy.optimizer.config.MogyConfig.get();
+            config.fpsBooster = false;
+            double offMs = measureFrameTime(context, world);
+            context.takeScreenshot("mogy_fps_booster_off");
+            config.fpsBooster = true;
+            double onMs = measureFrameTime(context, world);
+            context.takeScreenshot("mogy_fps_booster_on");
+
+            // Correctness: the near armor stand and the player must never be culled; far decorations must be.
+            String check = context.computeOnClient(client -> {
+                var camera = client.gameRenderer.getMainCamera().position();
+                int nearCulled = 0, farCulled = 0, farTotal = 0, playersCulled = 0;
+                for (net.minecraft.world.entity.Entity e : client.level.entitiesForRendering()) {
+                    boolean culled = com.mogy.optimizer.boost.FpsBooster.shouldCullEntity(e, camera.x, camera.y, camera.z);
+                    double dist = Math.sqrt(e.distanceToSqr(camera));
+                    if (e instanceof net.minecraft.world.entity.player.Player && culled) playersCulled++;
+                    if (dist < 40 && culled) nearCulled++;
+                    if (dist > 50 && (e instanceof net.minecraft.world.entity.decoration.ArmorStand || e instanceof net.minecraft.world.entity.Display)) {
+                        farTotal++;
+                        if (culled) farCulled++;
+                    }
+                }
+                return nearCulled + "," + farCulled + "," + farTotal + "," + playersCulled;
+            });
+            String[] parts = check.split(",");
+            LOGGER.info("FPS BOOSTER: frame time off={} ms ({} fps), on={} ms ({} fps), {}% faster; near culled={}, far decorations culled={}/{}, players culled={}",
+                    String.format("%.2f", offMs), Math.round(1000 / offMs), String.format("%.2f", onMs), Math.round(1000 / onMs),
+                    Math.round((offMs / onMs - 1) * 100), parts[0], parts[1], parts[2], parts[3]);
+            if (!parts[0].equals("0") || !parts[3].equals("0")) {
+                throw new AssertionError("FPS booster hid something that must stay visible: " + check);
+            }
+            if (Integer.parseInt(parts[1]) == 0) {
+                throw new AssertionError("FPS booster did not cull any distant decoration: " + check);
+            }
+            if (onMs >= offMs) {
+                throw new AssertionError("FPS booster did not reduce frame time (" + onMs + " >= " + offMs + ")");
+            }
+            LOGGER.info("FPS BOOSTER TEST PASSED");
+        }
+    }
+
+    /** Average frame draw time over 200 ticks while a totem particle storm keeps running. */
+    private static double measureFrameTime(ClientGameTestContext context,
+                                           net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext world) {
+        context.waitTicks(40);
+        long total = 0;
+        int samples = 0;
+        for (int tick = 0; tick < 200; tick++) {
+            if (tick % 5 == 0) {
+                world.getServer().runCommand("particle minecraft:totem_of_undying 0.5 -57 20 3 2 3 0.6 800 force");
+            }
+            context.waitTick();
+            total += context.computeOnClient(client -> client.getFrameTimeNs());
+            samples++;
+        }
+        return total / (double) samples / 1_000_000.0;
     }
 
     /**
@@ -144,6 +237,34 @@ public class MogyClientGameTest implements FabricClientGameTest {
             LOGGER.info("FREEZE RECORDER TEST PASSED:\n{}", text.lines().limit(8).reduce("", (a, b) -> a + b + "\n"));
         } catch (IOException e) {
             throw new AssertionError(e);
+        }
+    }
+
+    /** Slows every frame to ~120 ms (about 8 FPS) for several seconds and checks a low-FPS report names the cause. */
+    private void testLowFpsRecorder(ClientGameTestContext context) {
+        Path report = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("mogy-optimizer-stalls.txt");
+        for (int i = 0; i < 80; i++) {
+            context.runOnClient(client -> deliberateSlowFrame());
+            context.waitTick();
+        }
+        context.waitTicks(20);
+        try {
+            String text = Files.exists(report) ? Files.readString(report) : "";
+            int start = text.indexOf("=== Low FPS");
+            if (start < 0 || !text.substring(start).contains("deliberateSlowFrame")) {
+                throw new AssertionError("Low-FPS report missing or does not name the slow method:\n" + text);
+            }
+            LOGGER.info("LOW FPS RECORDER TEST PASSED:\n{}", text.substring(start).lines().limit(4).reduce("", (a, b) -> a + b + "\n"));
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void deliberateSlowFrame() {
+        try {
+            Thread.sleep(120);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
